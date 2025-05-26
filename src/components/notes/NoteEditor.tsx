@@ -1,5 +1,5 @@
 "use client";
-
+import { cn } from "@/lib/utils";
 import type { Note, NoteFormattingOptions } from '@/lib/types';
 import { useNotes } from '@/hooks/use-notes';
 import { Input } from '@/components/ui/input';
@@ -51,6 +51,26 @@ export function NoteEditor({ note }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [currentVerseFragment, setCurrentVerseFragment] = useState(''); // For VerseCompleter
+  const [bibleBookSearch, setBibleBookSearch] = useState(''); // For Bible book autocomplete
+
+  // Basic list of Bible books (can be moved to a separate file or fetched)
+  const bibleBooks = [
+    "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy",
+    "Joshua", "Judges", "Ruth", "1 Samuel", "2 Samuel", "1 Kings", "2 Kings",
+    "1 Chronicles", "2 Chronicles", "Ezra", "Nehemiah", "Esther", "Job",
+    "Psalms", "Proverbs", "Ecclesiastes", "Song of Solomon", "Isaiah",
+    "Jeremiah", "Lamentations", "Ezekiel", "Daniel", "Hosea", "Joel", "Amos",
+    "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk", "Zephaniah", "Haggai",
+    "Zechariah", "Malachi", "Matthew", "Mark", "Luke", "John", "Acts", "Romans",
+    "1 Corinthians", "2 Corinthians", "Galatians", "Ephesians", "Philippians",
+    "Colossians", "1 Thessalonians", "2 Thessalonians", "1 Timothy", "2 Timothy",
+    "Titus", "Philemon", "Hebrews", "James", "1 Peter", "2 Peter", "1 John",
+    "2 John", "3 John", "Jude", "Revelation"
+  ];
+
+  const filteredBibleBooks = bibleBooks.filter(book =>
+    book.toLowerCase().startsWith(bibleBookSearch.toLowerCase())
+  );
 
   // Reset local state when `note` prop changes
   useEffect(() => {
@@ -81,6 +101,20 @@ export function NoteEditor({ note }: NoteEditorProps) {
     const lastNewline = textUntilCursor.lastIndexOf('\n');
     const currentLine = textUntilCursor.substring(lastNewline + 1);
     setCurrentVerseFragment(currentLine);
+
+    // Logic to detect "@" and subsequent characters for Bible book search
+    const atIndex = currentLine.lastIndexOf('@');
+    if (atIndex !== -1) {
+      const searchString = currentLine.substring(atIndex + 1).trim();
+      // Only update search if the character after @ is not a space
+      if (searchString && !searchString.includes(' ')) {
+         setBibleBookSearch(searchString);
+      } else {
+         setBibleBookSearch(''); // Clear search if space is typed after @
+      }
+    } else {
+      setBibleBookSearch(''); // Clear search if @ is not present in the current line
+    }
   };
 
   const handleFormattingChange = (formatting: Partial<NoteFormattingOptions>) => {
