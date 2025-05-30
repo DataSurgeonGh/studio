@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { bibleBooksKJV } from '@/lib/bibleBooks';
 
 interface NoteEditorProps {
   note: Note;
@@ -53,23 +54,9 @@ export function NoteEditor({ note }: NoteEditorProps) {
   const [currentVerseFragment, setCurrentVerseFragment] = useState(''); // For VerseCompleter
   const [bibleBookSearch, setBibleBookSearch] = useState(''); // For Bible book autocomplete
 
-  // Basic list of Bible books (can be moved to a separate file or fetched)
-  const bibleBooks = [
-    "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy",
-    "Joshua", "Judges", "Ruth", "1 Samuel", "2 Samuel", "1 Kings", "2 Kings",
-    "1 Chronicles", "2 Chronicles", "Ezra", "Nehemiah", "Esther", "Job",
-    "Psalms", "Proverbs", "Ecclesiastes", "Song of Solomon", "Isaiah",
-    "Jeremiah", "Lamentations", "Ezekiel", "Daniel", "Hosea", "Joel", "Amos",
-    "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk", "Zephaniah", "Haggai",
-    "Zechariah", "Malachi", "Matthew", "Mark", "Luke", "John", "Acts", "Romans",
-    "1 Corinthians", "2 Corinthians", "Galatians", "Ephesians", "Philippians",
-    "Colossians", "1 Thessalonians", "2 Thessalonians", "1 Timothy", "2 Timothy",
-    "Titus", "Philemon", "Hebrews", "James", "1 Peter", "2 Peter", "1 John",
-    "2 John", "3 John", "Jude", "Revelation"
-  ];
-
-  const filteredBibleBooks = bibleBooks.filter(book =>
-    book.toLowerCase().startsWith(bibleBookSearch.toLowerCase())
+  const filteredBibleBooks = bibleBooksKJV.filter(book =>
+    book.name.toLowerCase().startsWith(bibleBookSearch.toLowerCase()) ||
+    book.abbreviations.some(abbr => abbr.toLowerCase().startsWith(bibleBookSearch.toLowerCase()))
   );
 
   // Reset local state when `note` prop changes
@@ -106,11 +93,30 @@ export function NoteEditor({ note }: NoteEditorProps) {
     const atIndex = currentLine.lastIndexOf('@');
     if (atIndex !== -1) {
       const searchString = currentLine.substring(atIndex + 1).trim();
-      // Only update search if the character after @ is not a space
       if (searchString && !searchString.includes(' ')) {
          setBibleBookSearch(searchString);
       } else {
          setBibleBookSearch(''); // Clear search if space is typed after @
+      }
+    } else {
+      setBibleBookSearch(''); // Clear search if @ is not present in the current line
+    }
+  };
+
+  const handleBookSelect = (bookName: string) => {
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+    if (textarea) {
+      const cursorPos = textarea.selectionStart;
+      const textBeforeCursor = textarea.value.substring(0, cursorPos);
+      const atIndex = textBeforeCursor.lastIndexOf('@');
+      if (atIndex !== -1) {
+        const textAfterReplacement = textBeforeCursor.substring(0, atIndex) + bookName + ' ' + textarea.value.substring(cursorPos);
+        setContent(textAfterReplacement);
+        setBibleBookSearch(''); // Clear search after selection
+        // You might want to adjust cursor position after insertion
+        textarea.selectionStart = atIndex + bookName.length + 1;
+        textarea.selectionEnd = atIndex + bookName.length + 1;
+        textarea.focus();
       }
     } else {
       setBibleBookSearch(''); // Clear search if @ is not present in the current line
@@ -188,6 +194,19 @@ export function NoteEditor({ note }: NoteEditorProps) {
             note.lineSpacing
           )}
         />
+        {bibleBookSearch && filteredBibleBooks.length > 0 && (
+          <ul className="absolute z-10 bg-white border border-gray-200 rounded-md mt-1 w-full max-h-48 overflow-y-auto shadow-lg">
+            {filteredBibleBooks.map((book) => (
+              <li
+                key={book.name}
+                className="px-4 py-2 cursor-pointer hover:bg-gray-100"
+                onClick={() => handleBookSelect(book.name)}
+              >
+                {book.name}
+              </li>
+            ))}
+          </ul>
+        )}
       </ScrollArea>
 
       <footer className="p-4 border-t">
