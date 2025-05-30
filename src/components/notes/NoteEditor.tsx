@@ -81,29 +81,54 @@ export function NoteEditor({ note }: NoteEditorProps) {
     debouncedUpdateNote({ title: e.target.value });
   };
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+  const handleContentChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
+    setContent(newContent);
     debouncedUpdateNote({ content: e.target.value });
 
-    // Logic to extract current verse fragment (e.g., current line)
     const cursorPos = e.target.selectionStart;
-    const textUntilCursor = e.target.value.substring(0, cursorPos);
+    const textUntilCursor = newContent.substring(0, cursorPos);
     const lastNewline = textUntilCursor.lastIndexOf('\n');
     const currentLine = textUntilCursor.substring(lastNewline + 1);
     setCurrentVerseFragment(currentLine);
 
-    // Logic to detect "@" and subsequent characters for Bible book search
     const atIndex = currentLine.lastIndexOf('@');
-    if (atIndex !== -1) {
+
+    if (e.nativeEvent.inputType === 'insertLineBreak' && atIndex !== -1) {
+      // User pressed Enter, check if there's a potential verse reference after @
       const searchString = currentLine.substring(atIndex + 1).trim();
-      if (searchString && !searchString.includes(' ')) {
-         setBibleBookSearch(searchString);
-      } else {
-         setBibleBookSearch(''); // Clear search if space is typed after @
+      const potentialVerseReference = findAndExtractVerseReferences(searchString)[0]; // Take the first match
+
+      if (potentialVerseReference) {
+        try {
+          const fullVerse = await fetchBibleVerse(potentialVerseReference);
+          const textBeforeAt = textUntilCursor.substring(0, atIndex);
+          const textAfterCursor = newContent.substring(cursorPos);
+          const updatedContent = textBeforeAt + fullVerse + textAfterCursor;
+          setContent(updatedContent);
+          debouncedUpdateNote({ content: updatedContent });
+          // Position cursor after the inserted verse
+          e.target.selectionStart = atIndex + fullVerse.length;
+          e.target.selectionEnd = atIndex + fullVerse.length;
+        } catch (error) {
+          console.error("Failed to fetch verse on Enter:", error);
+          // Optionally, show a toast notification about the error
+        }
       }
     } else {
-      setBibleBookSearch(''); // Clear search if @ is not present in the current line
+      // Logic to detect "@" and subsequent characters for Bible book search (existing logic)
+ if (atIndex !== -1) {
+ const searchString = currentLine.substring(atIndex + 1).trim();
+ if (searchString && !searchString.includes(' ')) {
+ setBibleBookSearch(searchString);
+ } else {
+ setBibleBookSearch(''); // Clear search if space is typed after @
+ }
+ } else {
+ setBibleBookSearch(''); // Clear search if @ is not present in the current line
+ }
     }
+
   };
 
   const handleBookSelect = (bookName: string) => {
