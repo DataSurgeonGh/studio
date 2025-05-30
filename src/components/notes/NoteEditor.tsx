@@ -6,13 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { TagInput } from './TagInput';
+import { VerseModal } from '../ui/verse-modal';
 import { FormattingToolbar } from './FormattingToolbar';
 import { VerseCompleter } from './VerseCompleter';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Save, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useCallback } from 'react';
-import {
+import { 
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -24,7 +25,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { bibleBooksKJV } from '@/lib/bibleBooks';
-
+import { findAndExtractVerseReferences, fetchBibleVerse } from '@/lib/utils';
 interface NoteEditorProps {
   note: Note;
 }
@@ -53,6 +54,8 @@ export function NoteEditor({ note }: NoteEditorProps) {
   const [content, setContent] = useState(note.content);
   const [currentVerseFragment, setCurrentVerseFragment] = useState(''); // For VerseCompleter
   const [bibleBookSearch, setBibleBookSearch] = useState(''); // For Bible book autocomplete
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalVerseText, setModalVerseText] = useState('');
 
   const filteredBibleBooks = bibleBooksKJV.filter(book =>
     book.name.toLowerCase().startsWith(bibleBookSearch.toLowerCase()) ||
@@ -140,6 +143,40 @@ export function NoteEditor({ note }: NoteEditorProps) {
     toast({ title: "Verse Inserted", description: "The completed verse has been inserted." });
   };
 
+  // Function to render content with clickable verse references
+  const renderContentWithVerses = (text: string) => {
+    const parts = [];
+    let lastIndex = 0;
+    const verseReferences = findAndExtractVerseReferences(text);
+
+    verseReferences.forEach(ref => {
+      const index = text.indexOf(ref, lastIndex);
+      if (index > lastIndex) {
+        parts.push(<span key={`text-${lastIndex}`}>{text.substring(lastIndex, index)}</span>);
+      }
+      const handleClick = async () => {
+        try {
+          const fullVerse = await fetchBibleVerse(ref);
+          setModalVerseText(fullVerse);
+          setIsModalOpen(true);
+        } catch (error) {
+          console.error("Failed to fetch verse:", error);
+          toast({
+            title: "Error fetching verse",
+            description: "Could not retrieve the full verse text.",
+            variant: "destructive",
+          });
+        }
+      };
+      parts.push(<span key={ref} className="verse-reference text-blue-600 cursor-pointer" onClick={handleClick}>[{ref}]</span>);
+      lastIndex = index + ref.length;
+    });
+
+    if (lastIndex < text.length) {
+      parts.push(<span key={`text-${lastIndex}`}>{text.substring(lastIndex)}</span>);
+    }
+    return parts;
+  };
   return (
     <div className="flex flex-col h-full bg-card shadow-lg rounded-r-xl overflow-hidden">
       <header className="p-4 border-b flex items-center justify-between">
@@ -209,6 +246,16 @@ export function NoteEditor({ note }: NoteEditorProps) {
         )}
       </ScrollArea>
 
+      {/* This div will be used to display styled content with clickable verses */}
+      {/* Initially, just displays the plain text content */}
+      <div
+        className={cn(
+ "note-display-content h-full min-h-[calc(100vh-250px)] w-full p-6 text-base",
+ note.fontSize,
+ note.lineSpacing
+ )}
+ >{renderContentWithVerses(content)}</div>
+
       <footer className="p-4 border-t">
         <TagInput
           tags={note.tags}
@@ -217,5 +264,11 @@ export function NoteEditor({ note }: NoteEditorProps) {
         />
       </footer>
     </div>
+
+    <VerseModal
+      isOpen={isModalOpen}
+      onClose={() => setIsModalOpen(false)}
+      verseText={modalVerseText}
+    />
   );
 }

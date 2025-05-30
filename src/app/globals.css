@@ -104,3 +104,8 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.verse-reference {
+  color: var(--primary); /* Use the primary blue color */
+  &::before, &::after { content: '['; content: ']'; } /* This is incorrect CSS for adding brackets */
+}
